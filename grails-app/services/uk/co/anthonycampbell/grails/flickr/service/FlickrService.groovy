@@ -137,51 +137,39 @@ public class FlickrService implements InitializingBean {
 	}
     
 	/**
-	 * Attempts to retrieve all photos for the selected tag.
+	 * Attempts to retrieve all tags for the configured Flickr user.
 	 * 
-	 * @param tagId - photo tag keyword.
 	 * @return list of photos for the selected photo set.
 	 * @throws FlickrServiceUnavailableException Flickr service is currently available.
 	 * @throws FlickrServiceFailureException Unable to retrieve photos for provided set ID.
 	 */
 	@Cacheable
-	public List<Photo> getPhotosForTag(final String tagId) throws FlickrServiceUnavailableException,
+	public List<String> getAllTags() throws FlickrServiceUnavailableException,
 			FlickrServiceFailureException {
 		// Check state
         isInitialised()
 		
-		// Validate
-		if (!StringUtils.hasText(tagId)) {
-			throw new IllegalArgumentException("Photo tag must be provided!")
-		}
-		
 		// Initialise result
-		def photos = []
+		def tags = []
 		
-		log?.info "Retrieving photos for tag ${tagId}..."
+		log?.info "Retrieving all tags..."
 		
 		// Request
-		final JSONObject json = getFlickr([method: FlickrRequest.GET_SET_PHOTOS.getMethod(),
-			extras: "license,date_upload,date_taken,owner_name,last_update,geo,tags,o_dims,views,media,path_alias,url_sq,url_t,url_s,url_m,url_o",
-			photoset_id: setId])
+		final JSONObject json = getFlickr([method: FlickrRequest.GET_ALL_TAGS.getMethod()])
 		
 		log?.debug "Response recieved"
 		
 		// Validate response
-		if (json?.photoset) {
+		if (json?.who) {
 			// Parse JSON
-			json?.photoset?.photo?.each {
-				log?.debug "- photo ID: ${it?.id}"
+			json?.who?.tags?.tag?.each {
+				log?.debug "- tag keyword: ${it?._content}"
 				
-				photos.add(new Photo(it?.id, it?.license, it?.ownername, it?.title, it?.tags,
-					it?.latitude, it?.longitude, it?.views, it?.isprimary, it?.dateupload, it?.datetaken,
-					it?.lastupdate, it?.url_sq, it?.height_sq, it?.width_sq, it?.url_t, it?.height_t,
-					it?.width_t, it?.url_s, it?.height_s, it?.width_s, it?.url_m, it?.height_m,
-					it?.width_m, it?.url_o, it?.height_o, it?.width_o))
+				tags.add(it?._content)
 			}
 		}
 		
-		return photos
+		return tags
 	}
 	
 	/**

@@ -23,22 +23,18 @@ import org.junit.Test
 import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceFailureException
 
 /**
- * Integration test for the {@link FlickrService#getSetPhotos(Object)}.
+ * Integration test for the {@link FlickrService#getSets()}.
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
-class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
+class WhenRequestingPhotosetsTest extends GrailsUnitTestCase {
     // Declare dependency
     FlickrService flickrService
-	
-	// Test photo set ID
-	private static final String TEST_SET_ID = "test.set.id"
     
     protected void setUp() {
         super.setUp()
 		
 		assertNotNull flickrService
-		flickrService.resetConfig()
     }
 
     protected void tearDown() {
@@ -48,21 +44,19 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
     @Test
     void validConfigurationShouldReturnPopulatedSets() {
 		final def photoSets = flickrService.getSets()
-		assertNotNull photoSets
 		
-		final def photos = flickrService.getPhotosForSet(photoSets[0]?.flickrId)
-		assertNotNull photos
-		assertTrue !photos.isEmpty()
+		assertNotNull photoSets
+		assertTrue !photoSets.isEmpty()
     }
 
     @Test
-    void invalidUserIdShouldThrowException() {
+    void invalidUserIdShouldReturnPopulatedSets() {
 		// Reset config
 		flickrService.flickrUserId = ""
 		
 		try {
-			flickrService.getPhotosForSet(TEST_SET_ID)
-			fail "Expected FlickrServiceFailureException to be thrown!"
+			flickrService.getSets()
+			fail("Expected FlickrServiceFailureException to be thrown!")
 		} catch (FlickrServiceFailureException fsfe) {
 			assertNotNull fsfe
 			assertEquals(1, fsfe.getCode())
@@ -70,38 +64,16 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
     }
 
     @Test
-    void invalidAppKeyShouldThrowException() {
+    void invalidAppKeyShouldReturnPopulatedSets() {
 		// Reset config
 		flickrService.flickrApiKey = ""
 		
 		try {
-			flickrService.getPhotosForSet(TEST_SET_ID)
-			fail "Expected FlickrServiceFailureException to be thrown!"
+			flickrService.getSets()
+			fail("Expected FlickrServiceFailureException to be thrown!")
 		} catch (FlickrServiceFailureException fsfe) {
 			assertNotNull fsfe
 			assertEquals(100, fsfe.getCode())
-		}
-    }
-
-    @Test
-    void nullSetIdShouldThrowException() {
-		try {
-			flickrService.getPhotosForSet(null)
-			fail "Expected IllegalArgumentException to be thrown!"
-		} catch (IllegalArgumentException iae) {
-			assertNotNull iae
-			assertTrue iae.getMessage()?.contains("must be provided")
-		}
-    }
-
-    @Test
-    void emptySetIdShouldThrowException() {
-		try {
-			flickrService.getPhotosForSet("")
-			fail "Expected IllegalArgumentException to be thrown!"
-		} catch (IllegalArgumentException iae) {
-			assertNotNull iae
-			assertTrue iae.getMessage()?.contains("must be provided")
 		}
     }
 }

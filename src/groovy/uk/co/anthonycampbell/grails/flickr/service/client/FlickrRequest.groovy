@@ -24,7 +24,8 @@ package uk.co.anthonycampbell.grails.flickr.service.client;
 public enum FlickrRequest {
 	// Declare constants
 	GET_SET_LIST("flickr.photosets.getList"),
-	GET_SET_PHOTOS("flickr.photosets.getPhotos")
+	GET_SET_PHOTOS("flickr.photosets.getPhotos"),
+	GET_ALL_TAGS("flickr.tags.getListUser")
 	
 	// Declare properties
 	private final String method

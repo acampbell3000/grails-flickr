@@ -20,21 +20,25 @@ import grails.test.*
 
 import org.junit.Test
 
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceFailureException;
+import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceFailureException
 
 /**
- * Integration test for the {@link FlickrService#getSets()}.
+ * Integration test for the {@link FlickrService#getSetPhotos(Object)}.
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
-class WhenRequestingPhotoSetsTest extends GrailsUnitTestCase {
+class WhenRequestingAllTagsTest extends GrailsUnitTestCase {
     // Declare dependency
-    def flickrService
+    FlickrService flickrService
+	
+	// Test photo tag ID
+	private static final String TEST_TAG_ID = "test.tag.id"
     
     protected void setUp() {
         super.setUp()
 		
 		assertNotNull flickrService
+		flickrService.resetConfig()
     }
 
     protected void tearDown() {
@@ -42,21 +46,20 @@ class WhenRequestingPhotoSetsTest extends GrailsUnitTestCase {
     }
 
     @Test
-    void validConfigurationShouldReturnPopulatedSets() {
-		final def photoSets = flickrService.getSets()
-		
-		assertNotNull photoSets
-		assertTrue !photoSets.isEmpty()
+    void validConfigurationShouldReturnAllTags() {
+		final def tags = flickrService.getAllTags()
+		assertNotNull tags
+		assertTrue !tags?.isEmpty()
     }
 
     @Test
-    void invalidUserIdShouldReturnPopulatedSets() {
+    void invalidUserIdShouldThrowException() {
 		// Reset config
 		flickrService.flickrUserId = ""
 		
 		try {
-			flickrService.getSets()
-			fail("Expected FlickrServiceFailureException to be thrown!")
+			flickrService.getAllTags()
+			fail "Expected FlickrServiceFailureException to be thrown!"
 		} catch (FlickrServiceFailureException fsfe) {
 			assertNotNull fsfe
 			assertEquals(1, fsfe.getCode())
@@ -64,13 +67,13 @@ class WhenRequestingPhotoSetsTest extends GrailsUnitTestCase {
     }
 
     @Test
-    void invalidAppKeyShouldReturnPopulatedSets() {
+    void invalidAppKeyShouldThrowException() {
 		// Reset config
 		flickrService.flickrApiKey = ""
 		
 		try {
-			flickrService.getSets()
-			fail("Expected FlickrServiceFailureException to be thrown!")
+			flickrService.getAllTags()
+			fail "Expected FlickrServiceFailureException to be thrown!"
 		} catch (FlickrServiceFailureException fsfe) {
 			assertNotNull fsfe
 			assertEquals(100, fsfe.getCode())
