@@ -23,17 +23,18 @@ package uk.co.anthonycampbell.grails.flickr.service.client;
  */
 public enum FlickrRequest {
 	// Declare constants
-	GET_SET_LIST("flickr.photosets.getList")
+	GET_SET_LIST("flickr.photosets.getList"),
+	GET_SET_PHOTOS("flickr.photosets.getPhotos")
 	
 	// Declare properties
-	private def method
+	private final String method
 	
 	/**
 	 * Constructor.
 	 * 
 	 * @param method - Flickr API method name.
 	 */
-	FlickrRequest(final def method) {
+	FlickrRequest(final String method) {
 		this.method = method;
 	}
 	
@@ -42,7 +43,7 @@ public enum FlickrRequest {
 	 * 
 	 * @return Flickr API method name.
 	 */
-	public def getMethod() {
+	public String getMethod() {
 		return this.method
 	}
 }

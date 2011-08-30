@@ -21,7 +21,7 @@ package uk.co.anthonycampbell.grails.flickr.service.client
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
-public class FlickrServiceFailureException extends Exception {
+public class FlickrServiceUnavailableException extends Exception {
     // Declare exception properties
     private final String message
 
@@ -30,9 +30,8 @@ public class FlickrServiceFailureException extends Exception {
      *
      * @param message the exception message.
      */
-    public FlickrServiceFailureException(final String message) {
-        super(message)
-        this.message = message
+    public FlickrServiceUnavailableException(final String message) {
+        this(message, null)
     }
 
     /**
@@ -41,7 +40,7 @@ public class FlickrServiceFailureException extends Exception {
      * @param message the exception message.
      * @param exception the wrapped exception.
      */
-    public FlickrServiceFailureException(final String message, final Exception exception) {
+    public FlickrServiceUnavailableException(final String message, final Exception exception) {
         super(message, exception)
         this.message = message
     }
