@@ -21,20 +21,19 @@ import grails.test.*
 import org.junit.Test
 
 import uk.co.anthonycampbell.grails.flickr.domain.Photo
-import uk.co.anthonycampbell.grails.flickr.domain.Photoset
 import uk.co.anthonycampbell.grails.flickr.service.client.ServiceFailureException
 
 /**
- * Integration test for the {@link FlickrService#getPhotosForSet(String)}.
+ * Integration test for the {@link FlickrService#getPhotosForTag(String)}.
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
-class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
+class WhenRequestingPhotosForTagTest extends GrailsUnitTestCase {
     // Declare dependency
     FlickrService flickrService
 	
-	// Test photo set ID
-	private static final String TEST_SET_ID = "test.set.id"
+	// Test photo tag ID
+	private static final String TEST_TAG_ID = "test.tag.id"
     
     protected void setUp() {
         super.setUp()
@@ -48,14 +47,14 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
     }
 
     @Test
-    void validConfigurationShouldReturnPopulatedSets() {
-		final Set<Photoset> photoSets = flickrService.getAllPhotosets()
-		assertNotNull photoSets
-		assertTrue !photoSets.isEmpty()
+    void validConfigurationShouldReturnTagsForPhoto() {
+		final Set<String> tags = flickrService.getAllTags()
+		assertNotNull tags
+		assertTrue !tags?.isEmpty()
 		
-		final Set<Photo> photos = flickrService.getPhotosForPhotoset(photoSets?.toArray()[0]?.flickrId)
+		final Set<Photo> photos = flickrService.getPhotosForTag(tags?.toArray()[0])
 		assertNotNull photos
-		assertTrue !photos.isEmpty()
+		assertTrue !photos?.isEmpty()
     }
 
     @Test
@@ -64,7 +63,7 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
 		flickrService.flickrUserId = ""
 		
 		try {
-			flickrService.getPhotosForPhotoset(TEST_SET_ID)
+			flickrService.getPhotosForTag(TEST_TAG_ID)
 			fail "Expected ServiceFailureException to be thrown!"
 		} catch (ServiceFailureException sfe) {
 			assertNotNull sfe
@@ -78,7 +77,7 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
 		flickrService.flickrApiKey = ""
 		
 		try {
-			flickrService.getPhotosForPhotoset(TEST_SET_ID)
+			flickrService.getPhotosForTag(TEST_TAG_ID)
 			fail "Expected ServiceFailureException to be thrown!"
 		} catch (ServiceFailureException sfe) {
 			assertNotNull sfe
@@ -87,9 +86,9 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
     }
 
     @Test
-    void nullSetIdShouldThrowException() {
+    void nullTagKeywordShouldThrowException() {
 		try {
-			flickrService.getPhotosForPhotoset(null)
+			flickrService.getPhotosForTag(null)
 			fail "Expected IllegalArgumentException to be thrown!"
 		} catch (IllegalArgumentException iae) {
 			assertNotNull iae
@@ -98,9 +97,9 @@ class WhenRequestingPhotosForSetsTest extends GrailsUnitTestCase {
     }
 
     @Test
-    void emptySetIdShouldThrowException() {
+    void emptyTagKeywordShouldThrowException() {
 		try {
-			flickrService.getPhotosForPhotoset("")
+			flickrService.getPhotosForTag("")
 			fail "Expected IllegalArgumentException to be thrown!"
 		} catch (IllegalArgumentException iae) {
 			assertNotNull iae

@@ -20,19 +20,16 @@ import grails.test.*
 
 import org.junit.Test
 
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceFailureException
+import uk.co.anthonycampbell.grails.flickr.service.client.ServiceFailureException
 
 /**
- * Integration test for the {@link FlickrService#getSetPhotos(Object)}.
+ * Integration test for the {@link FlickrService#getAllTags()}.
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
 class WhenRequestingAllTagsTest extends GrailsUnitTestCase {
     // Declare dependency
     FlickrService flickrService
-	
-	// Test photo tag ID
-	private static final String TEST_TAG_ID = "test.tag.id"
     
     protected void setUp() {
         super.setUp()
@@ -59,10 +56,10 @@ class WhenRequestingAllTagsTest extends GrailsUnitTestCase {
 		
 		try {
 			flickrService.getAllTags()
-			fail "Expected FlickrServiceFailureException to be thrown!"
-		} catch (FlickrServiceFailureException fsfe) {
-			assertNotNull fsfe
-			assertEquals(1, fsfe.getCode())
+			fail "Expected ServiceFailureException to be thrown!"
+		} catch (ServiceFailureException sfe) {
+			assertNotNull sfe
+			assertEquals(1, sfe.getCode())
 		}
     }
 
@@ -73,10 +70,10 @@ class WhenRequestingAllTagsTest extends GrailsUnitTestCase {
 		
 		try {
 			flickrService.getAllTags()
-			fail "Expected FlickrServiceFailureException to be thrown!"
-		} catch (FlickrServiceFailureException fsfe) {
-			assertNotNull fsfe
-			assertEquals(100, fsfe.getCode())
+			fail "Expected ServiceFailureException to be thrown!"
+		} catch (ServiceFailureException sfe) {
+			assertNotNull sfe
+			assertEquals(100, sfe.getCode())
 		}
     }
 }

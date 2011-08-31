@@ -40,10 +40,11 @@ class Photo {
 	boolean primary = false
 	Date dateUploaded = new Date()
 	Date dateTaken = new Date()
-	Date lastModified = new Date()
+	Date dateModified = new Date()
 	
-	// Photo tags
+	// Associated domain classes
 	List<String> tags
+	List<Comment> comments
 	
 	// Photo URLs
 	String squareUrl = ""
@@ -61,6 +62,9 @@ class Photo {
 	String originalUrl = ""
 	long originalHeight = 0
 	long originalWidth = 0
+	
+	// Relationships
+	static hasMany = [ comments : Comment ]
 
 	/**
 	 * Constructor.
@@ -110,6 +114,7 @@ class Photo {
 		
 		this.tags = (tags instanceof String ? tags?.split()?.toList() :
 			(tags instanceof Collection ? tags : []))
+		this.comments = []
 		
 		this.latitude = (latitude instanceof Integer ? latitude :
 			(latitude instanceof String && latitude?.isLong() ? latitude?.toLong() : 0L))
@@ -129,9 +134,9 @@ class Photo {
 			this.dateTaken = dateTaken
 		}
 		if (lastUpdated instanceof String && lastUpdated?.isLong()) {
-			this.lastModified = new Date(lastUpdated?.toLong())
+			this.dateModified = new Date(lastUpdated?.toLong())
 		} else if (lastUpdated instanceof Date) {
-			this.lastModified = lastUpdated
+			this.dateModified = lastUpdated
 		}
 		
 		this.squareUrl = squareUrl
@@ -174,10 +179,11 @@ class Photo {
 		latitude(blank: true)
 		longitude(blank: true)
 		viewCount(min: 0L)
-		dateUploaded(nullable: true)
-		dateTaken(nullable: true)
-		lastModified(nullable: true)
-		tags(nullable: true)
+		dateUploaded(nullable: false)
+		dateTaken(nullable: false)
+		dateModified(nullable: false)
+		tags(nullable: false)
+		comments(nullable: false)
 		
 		squareUrl(blank: false)
 		squareHeight(min: 0L)
@@ -189,10 +195,36 @@ class Photo {
 		smallHeight(min: 0L)
 		smallWidth(min: 0L)
 		mediumUrl(blank: true)
-		mediumHeight(nullable: true)
-		mediumWidth(nullable: true)
+		mediumHeight(min: 0L)
+		mediumWidth(min: 0L)
 		originalUrl(blank: true)
-		originalHeight(nullable: true)
-		originalWidth(nullable: true)
+		originalHeight(min: 0L)
+		originalWidth(min: 0L)
     }
+	
+	@Override
+	public String toString() {
+		final def output = new StringBuilder()
+		output << "${this.getClass().getName()} : ${this.flickrId}"
+		return output.toString()
+	}
+	
+	@Override
+	public int hashCode() {
+		return 31 * 1 + ((flickrId == null) ? 0 : flickrId.hashCode())
+	}
+	
+	@Override
+	public boolean equals(final Object obj) {
+		if (obj == null || !(obj instanceof Photo))
+			return false
+			
+		final Photo other = (Photo) obj
+		if (flickrId == null && other.flickrId != null) {
+			return false
+		} else if (!flickrId.equals(other.flickrId))
+			return false
+		
+		return true
+	}
 }

@@ -1,4 +1,4 @@
-package uk.co.anthonycampbell.grails.flickr.service.client;
+package uk.co.anthonycampbell.grails.flickr.service.client
 
 /**
  * Copyright 2011 Anthony Campbell (anthonycampbell.co.uk)
@@ -17,34 +17,33 @@ package uk.co.anthonycampbell.grails.flickr.service.client;
  */
 
 /**
- * Enum declaring all of the sported Flickr requests.
+ * Enum declaring all of the supported Flickr response states.
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
-public enum FlickrRequest {
+public enum Response {
 	// Declare constants
-	GET_SET_LIST("flickr.photosets.getList"),
-	GET_SET_PHOTOS("flickr.photosets.getPhotos"),
-	GET_ALL_TAGS("flickr.tags.getListUser")
+	OK("ok"),
+	FAIL("fail")
 	
 	// Declare properties
-	private final String method
+	private def state
 	
 	/**
 	 * Constructor.
 	 * 
-	 * @param method - Flickr API method name.
+	 * @param state - Flickr API response state.
 	 */
-	FlickrRequest(final String method) {
-		this.method = method;
+	Response(final def state) {
+		this.state = state;
 	}
 	
 	/**
-	 * Return the flickr API method name for this enum instance.
+	 * Return the flickr API response state name for this enum instance.
 	 * 
-	 * @return Flickr API method name.
+	 * @return Flickr API response state.
 	 */
-	public String getMethod() {
-		return this.method
+	public def getState() {
+		return this.state
 	}
 }

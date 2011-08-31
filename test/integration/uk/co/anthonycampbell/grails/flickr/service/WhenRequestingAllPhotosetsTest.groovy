@@ -20,14 +20,14 @@ import grails.test.*
 
 import org.junit.Test
 
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceFailureException
+import uk.co.anthonycampbell.grails.flickr.service.client.ServiceFailureException
 
 /**
- * Integration test for the {@link FlickrService#getSets()}.
+ * Integration test for the {@link FlickrService#getAllPhotosets()}.
  *
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
-class WhenRequestingPhotosetsTest extends GrailsUnitTestCase {
+class WhenRequestingAllPhotosetsTest extends GrailsUnitTestCase {
     // Declare dependency
     FlickrService flickrService
     
@@ -43,7 +43,7 @@ class WhenRequestingPhotosetsTest extends GrailsUnitTestCase {
 
     @Test
     void validConfigurationShouldReturnPopulatedSets() {
-		final def photoSets = flickrService.getSets()
+		final def photoSets = flickrService.getAllPhotosets()
 		
 		assertNotNull photoSets
 		assertTrue !photoSets.isEmpty()
@@ -55,11 +55,11 @@ class WhenRequestingPhotosetsTest extends GrailsUnitTestCase {
 		flickrService.flickrUserId = ""
 		
 		try {
-			flickrService.getSets()
-			fail("Expected FlickrServiceFailureException to be thrown!")
-		} catch (FlickrServiceFailureException fsfe) {
-			assertNotNull fsfe
-			assertEquals(1, fsfe.getCode())
+			flickrService.getAllPhotosets()
+			fail("Expected ServiceFailureException to be thrown!")
+		} catch (ServiceFailureException sfe) {
+			assertNotNull sfe
+			assertEquals(1, sfe.getCode())
 		}
     }
 
@@ -69,11 +69,11 @@ class WhenRequestingPhotosetsTest extends GrailsUnitTestCase {
 		flickrService.flickrApiKey = ""
 		
 		try {
-			flickrService.getSets()
-			fail("Expected FlickrServiceFailureException to be thrown!")
-		} catch (FlickrServiceFailureException fsfe) {
-			assertNotNull fsfe
-			assertEquals(100, fsfe.getCode())
+			flickrService.getAllPhotosets()
+			fail("Expected ServiceFailureException to be thrown!")
+		} catch (ServiceFailureException sfe) {
+			assertNotNull sfe
+			assertEquals(100, sfe.getCode())
 		}
     }
 }

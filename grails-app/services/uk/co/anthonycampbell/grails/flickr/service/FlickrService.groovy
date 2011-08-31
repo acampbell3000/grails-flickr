@@ -17,6 +17,7 @@ package uk.co.anthonycampbell.grails.flickr.service
  */
 
 import grails.converters.JSON
+import grails.plugin.springcache.annotations.CacheFlush
 import grails.plugin.springcache.annotations.Cacheable
 
 import org.codehaus.groovy.grails.web.converters.exceptions.ConverterException
@@ -24,12 +25,14 @@ import org.codehaus.groovy.grails.web.json.*
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.util.StringUtils
 
+import uk.co.anthonycampbell.grails.flickr.domain.Collection
+import uk.co.anthonycampbell.grails.flickr.domain.Comment
 import uk.co.anthonycampbell.grails.flickr.domain.Photo
-import uk.co.anthonycampbell.grails.flickr.domain.PhotoSet
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrRequest
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrResponse
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceFailureException
-import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceUnavailableException
+import uk.co.anthonycampbell.grails.flickr.domain.Photoset
+import uk.co.anthonycampbell.grails.flickr.service.client.Request
+import uk.co.anthonycampbell.grails.flickr.service.client.Response
+import uk.co.anthonycampbell.grails.flickr.service.client.ServiceFailureException
+import uk.co.anthonycampbell.grails.flickr.service.client.ServiceUnavailableException
 
 /**
  * Default implementation of the Flickr service.
@@ -37,12 +40,13 @@ import uk.co.anthonycampbell.grails.flickr.service.client.FlickrServiceUnavailab
  * @author Anthony Campbell (anthonycampbell.co.uk)
  */
 public class FlickrService implements InitializingBean {
+	
     // Stateless session bean
 	static transactional = false
     boolean serviceInitialised = false
 
 	// Declare API constants
-	private static final def FLICKR_API_REST_URL       = "http://api.flickr.com"
+	private static final def FLICKR_API_REST_URL       = "http://api.Flickr.com"
 	
     // Service properties
     def grailsApplication
@@ -50,25 +54,51 @@ public class FlickrService implements InitializingBean {
     def flickrUserId
     
 	/**
-	 * Attempts to retrieve all photo sets for the configured Flickr account.
+	 * Attempt to retrieve all photos for the configured Flickr account.
 	 * 
-	 * @return list of photo sets.
-	 * @throws FlickrServiceUnavailableException Flickr service is currently available.
-	 * @throws FlickrServiceFailureException Unable to retrieve photo sets.
+	 * @return set of photos.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve photos.
 	 */
-	@Cacheable
-	public List<PhotoSet> getSets() throws FlickrServiceUnavailableException,
-			FlickrServiceFailureException {
+	@Cacheable("flickrServiceCache")
+	public Set<Photo> getAllPhotos() throws ServiceUnavailableException,
+			ServiceFailureException {
+		// Initialise result
+		final Set<Photo> photos = new LinkedHashSet<Photo>()
+				
+		// Get all available sets
+		final Set<Photoset> photosets = getAllPhotosets()
+		
+		if (photosets) {
+			photosets.each {
+				// Photos for each set
+				photos.addAll(getPhotosForPhotoset(it?.flickrId))
+			}
+		}
+		
+		return photos
+	}
+				
+	/**
+	 * Attempt to retrieve all photo sets for the configured Flickr account.
+	 *
+	 * @return set of photo sets.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve photo sets.
+	 */
+	@Cacheable("flickrServiceCache")
+	public Set<Photoset> getAllPhotosets() throws ServiceUnavailableException,
+			ServiceFailureException {
         // Check state
 		isInitialised()
 		
 		// Initialise result
-		def photoSets = []
+		final Set<Photoset> photosets = new LinkedHashSet<Photoset>()
 		
 		log?.info "Retrieving sets for user ID ${this.flickrUserId}..."
 		
 		// Request
-		final JSONObject json = getFlickr([method: FlickrRequest.GET_SET_LIST.getMethod()])
+		final JSONObject json = getFlickr([method: Request.GET_ALL_SET.getMethod()])
 		
 		log?.debug "Response recieved"
 		
@@ -78,27 +108,165 @@ public class FlickrService implements InitializingBean {
 			json?.photosets?.photoset?.each {
 				log?.debug "- photoset ID: ${it?.id}"
 				
-				photoSets.add(new PhotoSet(it?.id, it?.title, it?.description,
+				photosets.add(new Photoset(it?.id, it?.title, it?.description,
 					it?.photos, it?.videos, it?.count_views, it?.count_comments,
 					it?.can_comment, it?.visibility_can_see_set, it?.date_create,
 					it?.date_update))
 			}
 		}
 		
-		return photoSets
+		log?.info "${photosets?.size()} photoset(s) retrieved"
+		
+		return photosets
+	}
+	
+	/**
+	 * Attempt to retrieve all collections for the configured Flickr user.
+	 *
+	 * @return set of collections for the configured Flickr user.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve collections for the
+	 * 		configured Flickr user.
+	 */
+	@Cacheable("flickrServiceCache")
+	public Set<Collection> getAllCollections() throws ServiceUnavailableException,
+			ServiceFailureException {
+		// Check state
+		isInitialised()
+		
+		// Initialise result
+		final Set<Collection> collections = new LinkedHashSet<Collection>()
+		
+		// First lets get detailed photo set information
+		final Map<String, Photoset> photosetMap = [:]
+		final Set<Photoset> allPhotosets = getAllPhotosets()
+		if (allPhotosets) {
+			allPhotosets.each {
+				photosetMap.put(it?.flickrId, it)
+			}
+		}
+		
+		log?.info "Retrieving all collections..."
+		
+		// Request
+		final JSONObject json = getFlickr([method: Request.GET_ALL_COLLECTIONS.getMethod()])
+		
+		log?.debug "Response recieved"
+		
+		// Validate response
+		if (json?.collections) {
+			// Parse JSON
+			json?.collections?.collection?.each {
+				collections.add(parseCollection(it, photosetMap))
+			}
+		}
+		
+		log?.info "${collections?.size()} collection(s) retrieved"
+		
+		return collections
+	}
+			
+	/**
+	 * Attempt to retrieve all tags for the configured Flickr user.
+	 *
+	 * @return set of tags for the configured Flickr user.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve tags for the configured Flickr user.
+	 */
+	@Cacheable("flickrServiceCache")
+	public Set<String> getAllTags() throws ServiceUnavailableException,
+			ServiceFailureException {
+		// Check state
+		isInitialised()
+		
+		// Initialise result
+		final Set<String> tags = new LinkedHashSet<String>()
+		
+		log?.info "Retrieving all tags..."
+		
+		// Request
+		final JSONObject json = getFlickr([method: Request.GET_ALL_TAGS.getMethod()])
+		
+		log?.debug "Response recieved"
+		
+		// Validate response
+		if (json?.who) {
+			// Parse JSON
+			json?.who?.tags?.tag?.each {
+				log?.debug "- tag keyword: ${it?._content}"
+				
+				tags.add(it?._content)
+			}
+		}
+		
+		log?.info "${tags?.size()} tag(s) retrieved"
+		
+		return tags
 	}
     
 	/**
-	 * Attempts to retrieve all photos for the selected photo set.
+	 * Attempt to retrieve all photo sets for the selected collection.
+	 * 
+	 * @param collectionId - collection ID.
+	 * @return set of photo sets for the selected collection.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve photo sets for provided collection ID.
+	 */
+	@Cacheable("flickrServiceCache")
+	public Set<Photoset> getPhotosetsForCollection(final String collectionId)
+			throws ServiceUnavailableException, ServiceFailureException {
+		// Check state
+        isInitialised()
+		
+		// Validate
+		if (!StringUtils.hasText(collectionId)) {
+			throw new IllegalArgumentException("Photo collection ID must be provided!")
+		}
+		
+		// Initialise result
+		final Set<Photoset> photosets = new LinkedHashSet<Photoset>()
+		
+		// First lets get detailed photo set information
+		final Map<String, Photoset> photosetMap = [:]
+		final Set<Photoset> allPhotosets = getAllPhotosets()
+		if (allPhotosets) {
+			allPhotosets.each {
+				photosetMap.put(it?.flickrId, it)
+			}
+		}
+		
+		log?.info "Retrieving photosets for collection ID ${collectionId}..."
+		
+		// Request
+		final JSONObject json = getFlickr([method: Request.GET_ALL_COLLECTIONS.getMethod(),
+			collection_id: collectionId])
+		
+		log?.debug "Response recieved"
+		
+		// Validate response
+		if (json?.collections) {
+			// Parse JSON
+			json?.collections?.collection?.each {
+				photosets.add(parseCollectionPhotosets(it, photosetMap))
+			}
+		}
+		
+		log?.info "${photosets?.size()} photoset(s) retrieved"
+		
+		return photosets
+	}
+    
+	/**
+	 * Attempt to retrieve all photos for the selected photo set.
 	 * 
 	 * @param setId - photo set ID.
-	 * @return list of photos for the selected photo set.
-	 * @throws FlickrServiceUnavailableException Flickr service is currently available.
-	 * @throws FlickrServiceFailureException Unable to retrieve photos for provided set ID.
+	 * @return set of photos for the selected photo set.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve photos for provided set ID.
 	 */
-	@Cacheable
-	public List<Photo> getPhotosForSet(final String setId) throws FlickrServiceUnavailableException,
-			FlickrServiceFailureException {
+	@Cacheable("flickrServiceCache")
+	public Set<Photo> getPhotosForPhotoset(final String setId) throws ServiceUnavailableException,
+			ServiceFailureException {
 		// Check state
         isInitialised()
 		
@@ -108,12 +276,12 @@ public class FlickrService implements InitializingBean {
 		}
 		
 		// Initialise result
-		def photos = []
+		final Set<Photo> photos = new LinkedHashSet<Photo>()
 		
 		log?.info "Retrieving photos for set ID ${setId}..."
 		
 		// Request
-		final JSONObject json = getFlickr([method: FlickrRequest.GET_SET_PHOTOS.getMethod(),
+		final JSONObject json = getFlickr([method: Request.GET_SET_PHOTOS.getMethod(),
 			extras: "license,date_upload,date_taken,owner_name,last_update,geo,tags,o_dims,views,media,path_alias,url_sq,url_t,url_s,url_m,url_o",
 			photoset_id: setId])
 		
@@ -133,43 +301,102 @@ public class FlickrService implements InitializingBean {
 			}
 		}
 		
+		log?.info "${photos?.size()} photo(s) retrieved"
+		
 		return photos
 	}
     
 	/**
-	 * Attempts to retrieve all tags for the configured Flickr user.
+	 * Attempt to retrieve all photos for the provided tag.
 	 * 
-	 * @return list of photos for the selected photo set.
-	 * @throws FlickrServiceUnavailableException Flickr service is currently available.
-	 * @throws FlickrServiceFailureException Unable to retrieve photos for provided set ID.
+	 * @param tag - the selected tag.
+	 * @return set of photos for the provided tag.
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve photos for the provided tag.
 	 */
-	@Cacheable
-	public List<String> getAllTags() throws FlickrServiceUnavailableException,
-			FlickrServiceFailureException {
+	@Cacheable("flickrServiceCache")
+	public Set<Photo> getPhotosForTag(final String tag) throws ServiceUnavailableException,
+			ServiceFailureException {
 		// Check state
         isInitialised()
 		
-		// Initialise result
-		def tags = []
+		// Validate
+		if (!StringUtils.hasText(tag)) {
+			throw new IllegalArgumentException("Photo tag must be provided!")
+		}
 		
-		log?.info "Retrieving all tags..."
+		// Initialise result
+		final Set<Photo> matchedPhotos = new LinkedHashSet<Photo>()
+		
+		log?.info "Retrieving photos for tag ${tag}..."
+		
+		// First get all photo sets
+		final Set<Photoset> photosets = getAllPhotosets()
+		if (photosets) {
+			photosets.each {
+				final Set<Photo> photos = getPhotosForPhotoset(it?.flickrId)
+				
+				if (photos) {
+					photos.each {
+						if (it?.tags?.contains(tag)) {
+							log?.debug "- photo ID ${it?.flickrId}"
+							
+							matchedPhotos.add(it)
+						}
+					}
+				}
+			}	
+		}
+		
+		log?.info "${matchedPhotos?.size()} photo(s) retrieved for tag ${tag}"
+		
+		return matchedPhotos
+	}
+    
+	/**
+	 * Attempt to retrieve all comments for the selected photo.
+	 * 
+	 * @param photoId - ID of the selected photo.
+	 * @return set of comments for the provided photo
+	 * @throws ServiceUnavailableException Flickr service is currently available.
+	 * @throws ServiceFailureException Unable to retrieve comments for the selected photo.
+	 */
+	@Cacheable("flickrServiceCache")
+	public Set<Comment> getCommentsForPhoto(final String photoId) throws ServiceUnavailableException,
+			ServiceFailureException {
+		// Check state
+        isInitialised()
+		
+		// Validate
+		if (!StringUtils.hasText(photoId)) {
+			throw new IllegalArgumentException("Photo ID must be provided!")
+		}
+		
+		// Initialise result
+		final Set<Comment> comments = new LinkedHashSet<Comment>()
+		
+		log?.info "Retrieving comments for photo ${photoId}..."
 		
 		// Request
-		final JSONObject json = getFlickr([method: FlickrRequest.GET_ALL_TAGS.getMethod()])
+		final JSONObject json = getFlickr([method: Request.GET_PHOTO_COMMENTS.getMethod(),
+			photo_id: photoId])
 		
 		log?.debug "Response recieved"
 		
 		// Validate response
-		if (json?.who) {
+		if (json?.comments) {
 			// Parse JSON
-			json?.who?.tags?.tag?.each {
-				log?.debug "- tag keyword: ${it?._content}"
+			json?.comments?.comment?.each {
+				log?.debug "- comment ID: ${it?.id}"
 				
-				tags.add(it?._content)
+				comments.add(new Comment(it?.id, it?.author, it?.authorname, it?._content,
+					it?.datecreate, it?.datecreate))
 			}
 		}
 		
-		return tags
+		log?.info "${comments?.size()} comment(s) retrieved for photo ${photoId}"
+		
+		return comments
 	}
 	
 	/**
@@ -177,10 +404,10 @@ public class FlickrService implements InitializingBean {
 	 * 
 	 * @param parameters Flickr request parameters.
 	 * @return JSON response.
-	 * @throws FlickrServiceFailureException Flickr HTTP REST request failed.
+	 * @throws ServiceFailureException Flickr HTTP REST request failed.
 	 */
 	private JSONObject getFlickr(final Map<String, String> parameters)
-			throws FlickrServiceFailureException {
+			throws ServiceFailureException {
 		// Declare response
 		JSONObject json
 		
@@ -212,7 +439,7 @@ public class FlickrService implements InitializingBean {
 					json = JSON.parse(responseText)
 					
 					// Validate
-					if (!json || json?.stat != FlickrResponse.OK.getState()) {
+					if (!json || json?.stat != Response.OK.getState()) {
 						def errorMessage =
 							"Unable to perform Flickr request. Flickr API returned error code."
 						if (json?.code && json?.message) {
@@ -237,6 +464,58 @@ public class FlickrService implements InitializingBean {
 		}
 		
 		return json
+	}	
+			
+	/**
+	 * Helper method to parse a json object for Flickr collection details and
+	 * any associated child collection or photo sets.
+	 *
+	 * @param json JSON object to parse collection details.
+	 * @param photosetMap helper map containing all photo set details.
+	 * @return Flickr collection and associated children.
+	 */
+	private Collection parseCollection(final JSONObject json, final Map<String, Photoset> photosetMap) {
+		// Initialise result
+		Collection collection = null
+		
+		// Validate
+		if (json && photosetMap) {
+			log?.debug "- collection ID: ${json?.id}"
+			
+			collection = new Collection(json?.id, json?.title, json?.description,
+				json?.iconsmall, json?.iconlarge)
+			
+			// Children
+			json?.set?.each { collection.addToPhotosets(photosetMap?.get(it?.id)) }
+			json?.collection?.each { collection.addToCollections(parseCollection(it, photosetMap)) }
+		}
+		
+		return collection
+	}	
+			
+	/**
+	 * Helper method to parse a json object for Flickr collection details and
+	 * return all associated photo sets.
+	 *
+	 * @param json JSON object to parse collection details.
+	 * @param photosetMap helper map containing all photo set details.
+	 * @return Flickr collection and associated children.
+	 */
+	private Set<Photoset> parseCollectionPhotosets(final JSONObject json,
+			final Map<String, Photoset> photosetMap) {
+		// Initialise result
+		final Set<Photoset> photosets = new LinkedHashSet<Photoset>()
+		
+		// Validate
+		if (json && photosetMap) {
+			log?.debug "- collection ID: ${json?.id}"
+			
+			// Children
+			json?.set?.each { photosets.add(photosetMap?.get(it?.id)) }
+			json?.collection?.each { photosets.addAll(parseCollectionPhotosets(it, photosetMap)) }
+		}
+		
+		return photosets
 	}
 
     /**
@@ -255,6 +534,7 @@ public class FlickrService implements InitializingBean {
      *
      * @return whether configuration successfully loaded.
      */
+	@CacheFlush("flickrServiceCache")
     boolean resetConfig() {
         log?.info "Setting ${this.getClass().getSimpleName()} configuration..."
 
@@ -280,12 +560,12 @@ public class FlickrService implements InitializingBean {
         // Validate properties
         if (!isConfigValid(this.flickrUserId)) {
             log?.error "Unable to connect to Flickr API - invalid user ID (flickrUserId=$flickrUserId). " +
-			    "Please ensure you have declared the property flickr.userid in your application's config."
+			    "Please ensure you have declared the property Flickr.userid in your application's config."
             configValid = false
         }
         if (!isConfigValid(this.flickrApiKey)) {
             log?.error "Unable to connect to Flickr API - invalid API key (flickrUserId=$flickrApiKey). " +
-                "Please ensure you have declared the property flickr.apikey in your application's config."
+                "Please ensure you have declared the property Flickr.apikey in your application's config."
             configValid = false
         }
 
@@ -317,7 +597,7 @@ public class FlickrService implements InitializingBean {
     }
 	
 	/**
-	 * Helper method to throw {@link FlickrServiceFailureException} when the
+	 * Helper method to throw {@link ServiceFailureException} when the
 	 * service is not initialised.
 	 */
 	private void isInitialised() {
@@ -327,12 +607,12 @@ public class FlickrService implements InitializingBean {
 				"of the required configuration."
 			
 			log?.error(ouput)
-			throw new FlickrServiceUnavailableException(ouput)
+			throw new ServiceUnavailableException(ouput)
 		}
 	}
 	
 	/**
-	 * Helper method to throw {@link FlickrServiceFailureException}.
+	 * Helper method to throw {@link ServiceFailureException}.
 	 * Will include provided error message text and request parameters.
 	 * 
 	 * @param errorMessage - error message.
@@ -343,7 +623,7 @@ public class FlickrService implements InitializingBean {
 	}
 	
 	/**
-	 * Helper method to throw {@link FlickrServiceFailureException}.
+	 * Helper method to throw {@link ServiceFailureException}.
 	 * Will include provided error message text, code, request parameters and
 	 * exception cause (if provided).
 	 * 
@@ -353,20 +633,20 @@ public class FlickrService implements InitializingBean {
 	 * @param exception - (if any) cause exception.
 	 */
 	private void throwFailureException(final String errorMessage, final Map<String, String> parameters,
-			final int code, final Exception exception) {
+			final def code, final Exception exception) {
 		final def ouput = "${errorMessage}${printParameters(parameters)}"
 	
 		log?.error(ouput)
-		throw new FlickrServiceFailureException(ouput, code, exception)
+		throw new ServiceFailureException(ouput, code, exception)
 	}
 	
 	/**
 	 * Helper method to print the parameter map provided to the Flickr API request.
 	 * 
-	 * @param parameters - map containing the flickr request parameters.
+	 * @param parameters - map containing the Flickr request parameters.
 	 * @return string representation of the parameter map.
 	 */
-	private def printParameters(final Map<String, String> parameters) {
+	private String printParameters(final Map<String, String> parameters) {
 		final def output = new StringBuilder()
 		
 		if (parameters && !parameters.isEmpty()) {
